@@ -52,6 +52,16 @@ class CommentBody(BaseModel):
     parent_id: str | None = None
 
 
+class ReportBody(BaseModel):
+    target_type: str
+    target_id: str
+    reason: str
+
+
+class ResolveBody(BaseModel):
+    action: str
+
+
 class ChatStartBody(BaseModel):
     userId: str
 

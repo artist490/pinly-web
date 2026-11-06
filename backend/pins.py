@@ -86,6 +86,14 @@ def row_by_id(conn: sqlite3.Connection, pin_id: str) -> sqlite3.Row | None:
     return conn.execute("select * from pins where id = ?", (pin_id,)).fetchone()
 
 
+def visible_clause(alias: str = "") -> str:
+    """Пин, скрытый модерацией, не существует ни в одной выборке: страница
+    отдаёт 404, лента и поиск его не показывают. Решение обратимо — строка
+    и файлы остаются на месте, в отличие от стирания."""
+    column = f"{alias}.is_hidden" if alias else "is_hidden"
+    return f"({column} = 0 or {column} is null)"
+
+
 def owner_id(pin_id: str) -> str | None:
     """Чей это пин; None — пин внешний (ov-…, wc-…), владельца нет."""
     with connection() as conn:
@@ -107,7 +115,9 @@ def get_user_pin(pin_id: str) -> dict | None:
     if not pin_id.startswith("up-"):
         return None
     with connection() as conn:
-        row = row_by_id(conn, pin_id)
+        row = conn.execute(
+            f"select * from pins where id = ? and {visible_clause()}", (pin_id,)
+        ).fetchone()
         return pin_json(conn, row) if row else None
 
 
@@ -115,12 +125,14 @@ def recent_user_pins(category: str | None = None, limit: int = 6) -> list[dict]:
     with connection() as conn:
         if category:
             rows = conn.execute(
-                "select * from pins where category = ? order by created_at desc limit ?",
+                f"select * from pins where category = ? and {visible_clause()} "
+                "order by created_at desc limit ?",
                 (category, limit),
             ).fetchall()
         else:
             rows = conn.execute(
-                "select * from pins order by created_at desc limit ?", (limit,)
+                f"select * from pins where {visible_clause()} order by created_at desc limit ?",
+                (limit,),
             ).fetchall()
         return cards(conn, rows)
 
@@ -132,8 +144,9 @@ def search_user_pins(q: str, limit: int = 4) -> list[dict]:
     like = f"%{query.lower()}%"
     with connection() as conn:
         rows = conn.execute(
-            "select * from pins where lower(title) like ? or lower(description) like ? "
-            "or lower(tags) like ? or lower(category) like ? "
+            f"select * from pins where {visible_clause()} and "
+            "(lower(title) like ? or lower(description) like ? "
+            "or lower(tags) like ? or lower(category) like ?) "
             "order by created_at desc limit ?",
             (like, like, like, like, limit),
         ).fetchall()
@@ -153,8 +166,8 @@ def pins_by_tag(tag: str, limit: int = 60) -> list[dict]:
     wanted = clean.lower()
     with connection() as conn:
         rows = conn.execute(
-            "select distinct p.* from pins p join json_each(p.tags) t "
-            "order by p.created_at desc"
+            f"select distinct p.* from pins p join json_each(p.tags) t "
+            f"where {visible_clause('p')} order by p.created_at desc"
         ).fetchall()
         found = [
             row
@@ -188,7 +201,7 @@ def pins_of_user(conn: sqlite3.Connection, user_id: str, limit: int | None = Non
     Потолок нужен серверному рендеру профиля: без него страница мастера с
     тысячей загрузок отдаёт тысячу карточек в HTML.
     """
-    query = "select * from pins where user_id = ? order by created_at desc"
+    query = f"select * from pins where user_id = ? and {visible_clause()} order by created_at desc"
     args: list = [user_id]
     if limit is not None:
         query += " limit ?"

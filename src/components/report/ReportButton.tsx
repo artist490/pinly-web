@@ -1,21 +1,26 @@
 "use client";
 
-// Сигнал о злоупотреблениях. Загрузки пользователей попадают в общую ленту, а
-// кнопки «пожаловаться» не было вовсе. Очередь модерации — не этот раунд: одно
-// событие report (пин/доска + причина), которое владелец читает в сводке.
+// Сигнал о злоупотреблениях. Для вошедших — настоящая жалоба в очередь
+// модерации (POST /api/reports, дедуп по цели на стороне бэкенда); для
+// анонимов — событие report, которое владелец читает в сводке: требовать
+// вход ради одного клика — значит терять сигнал целиком.
 
 import { useEffect, useState } from "react";
 import { track } from "@/lib/track";
+import { apiReport, type ReportReason, type ReportTargetType } from "@/lib/api/moderation";
+import { useUser } from "@/lib/state/session";
 
-const REASONS = [
+const REASONS: { value: ReportReason; label: string }[] = [
   { value: "spam", label: "Спам или реклама" },
   { value: "copyright", label: "Нарушает авторские права" },
   { value: "offensive", label: "Неуместный контент" },
 ];
 
 export function ReportButton({ pin, board }: { pin?: string; board?: string }) {
+  const { user } = useUser();
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -31,10 +36,35 @@ export function ReportButton({ pin, board }: { pin?: string; board?: string }) {
     // нет: честно говорим, что именно произошло и кто это увидит.
     return (
       <p role="status" className="text-xs text-muted">
-        Отмечено: {done.toLowerCase()}. Разберётся администрация сервиса.
+        {done}. Разберётся администрация сервиса.
       </p>
     );
   }
+
+  const send = async (reason: { value: ReportReason; label: string }) => {
+    setOpen(false);
+    const target: { type: ReportTargetType; id: string } | null = pin
+      ? { type: "pin", id: pin }
+      : board
+        ? { type: "board", id: board }
+        : null;
+    if (!user || !target) {
+      // аноним: сигнал уходит в события, как и раньше
+      track.report({ pin, board }, reason.value);
+      setDone(`Отмечено: ${reason.label.toLowerCase()}`);
+      return;
+    }
+    try {
+      const { duplicate } = await apiReport(target.type, target.id, reason.value);
+      setDone(
+        duplicate
+          ? "Эта жалоба уже в очереди"
+          : `Жалоба отправлена: ${reason.label.toLowerCase()}`,
+      );
+    } catch {
+      setError(true);
+    }
+  };
 
   return (
     <div className="relative">
@@ -47,6 +77,12 @@ export function ReportButton({ pin, board }: { pin?: string; board?: string }) {
       >
         Пожаловаться
       </button>
+
+      {error && (
+        <p role="alert" className="text-xs text-danger">
+          Не удалось отправить жалобу.
+        </p>
+      )}
 
       {open && (
         <>
@@ -68,11 +104,7 @@ export function ReportButton({ pin, board }: { pin?: string; board?: string }) {
                 key={reason.value}
                 type="button"
                 role="menuitem"
-                onClick={() => {
-                  track.report({ pin, board }, reason.value);
-                  setDone(reason.label);
-                  setOpen(false);
-                }}
+                onClick={() => send(reason)}
                 className="flex min-h-11 w-full items-center rounded-xl px-2 text-left text-sm hover:bg-surface-hover"
               >
                 {reason.label}

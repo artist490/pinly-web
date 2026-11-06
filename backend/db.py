@@ -24,6 +24,7 @@ create table if not exists users (
   password_hash text not null,
   display_name  text not null default '',
   avatar_url    text,
+  is_blocked    integer not null default 0,
   created_at    real not null
 );
 create table if not exists consent_log (
@@ -65,6 +66,7 @@ create table if not exists pins (
   width       integer not null default 800,
   height      integer not null default 1200,
   file        text not null,
+  is_hidden   integer not null default 0,
   created_at  real not null
 );
 create index if not exists pins_user_idx on pins (user_id, created_at desc);
@@ -163,6 +165,16 @@ create table if not exists events (
 );
 create index if not exists events_day_name_idx on events (day, name);
 create index if not exists events_board_idx on events (board_id, day);
+create table if not exists reports (
+  id           text primary key,
+  reporter_id  text references users(id) on delete cascade,
+  target_type  text not null,
+  target_id    text not null,
+  reason       text not null,
+  status       text not null default 'open',
+  created_at   real not null
+);
+create index if not exists reports_status_idx on reports (status, created_at desc);
 """
 
 # Колонки, появившиеся после первой версии базы. Порядок = порядок применения:
@@ -174,6 +186,8 @@ MIGRATIONS = (
     "alter table media add column external_url text",
     "alter table events add column source text",
     "alter table comments add column parent_id text",
+    "alter table pins add column is_hidden integer not null default 0",
+    "alter table users add column is_blocked integer not null default 0",
 )
 
 

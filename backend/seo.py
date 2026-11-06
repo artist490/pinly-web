@@ -23,7 +23,12 @@ RATE_WINDOW_S = 3600.0
 # Секретные доски исключены тем же условием, что в social.user_boards: для
 # чужих их не существует, и в карте их быть не должно.
 QUERIES = {
-    "pins": ("select id, created_at from pins order by created_at desc", "/pin/"),
+    # пин, скрытый модерацией, из публичной карты исчезает: страница отдаёт 404
+    "pins": (
+        "select id, created_at from pins where (is_hidden = 0 or is_hidden is null) "
+        "order by created_at desc",
+        "/pin/",
+    ),
     "boards": (
         "select id, created_at from boards where (is_secret = 0 or is_secret is null) "
         "order by created_at desc",

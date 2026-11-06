@@ -7,6 +7,8 @@ export type AccountUser = {
   email: string;
   displayName: string;
   avatarUrl?: string | null;
+  /** Владелец сайта (PINLY_OWNER_EMAIL): видит ссылку на панель модерации. */
+  isAdmin?: boolean;
   createdAt: number;
 };
 

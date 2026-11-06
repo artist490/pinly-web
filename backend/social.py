@@ -122,6 +122,7 @@ def subscriptions_feed(me_id: str) -> dict:
         placeholders = ",".join("?" for _ in ids)
         rows = conn.execute(
             f"select * from pins where user_id in ({placeholders}) "
+            "and (is_hidden = 0 or is_hidden is null) "
             "order by created_at desc limit ?",
             [*ids, SUBSCRIPTIONS_PINS],
         ).fetchall()

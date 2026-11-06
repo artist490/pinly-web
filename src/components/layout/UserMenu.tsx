@@ -87,6 +87,7 @@ export function UserMenu() {
           {item("/notifications", "Уведомления")}
           {item("/media", "Медиатека")}
           {item("/boards", "Мои доски")}
+          {user.isAdmin && item("/admin", "Модерация")}
           <button
             type="button"
             onClick={logout}

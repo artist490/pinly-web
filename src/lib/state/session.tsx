@@ -13,6 +13,7 @@ export type SessionUser = {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  isAdmin: boolean;
   createdAt: number;
 };
 
@@ -24,6 +25,7 @@ function toSessionUser(account: AccountUser): SessionUser {
     email: account.email,
     displayName: account.displayName || account.email.split("@")[0],
     avatarUrl: account.avatarUrl ?? null,
+    isAdmin: account.isAdmin ?? false,
     createdAt: account.createdAt,
   };
 }

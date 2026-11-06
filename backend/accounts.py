@@ -96,10 +96,13 @@ def register(
 
 
 def login(email: str, password: str) -> sqlite3.Row:
-    """Проверить пару адрес/пароль; нет её — 401 bad_credentials."""
+    """Проверить пару адрес/пароль; нет её — 401 bad_credentials.
+    Заблокированный модератором аккаунт не входит."""
     row = user_by_email(email.strip().lower())
     if row is None or not verify_password(password, row["password_hash"]):
         raise HTTPException(401, "bad_credentials")
+    if row["is_blocked"]:
+        raise HTTPException(403, "account blocked")
     return row
 
 
@@ -190,10 +193,16 @@ def remove_user(conn: sqlite3.Connection, user_id: str) -> None:
 # --- карточка пользователя ---
 
 def user_json(row: sqlite3.Row) -> dict:
+    # deps импортирует accounts, поэтому здесь импорт на месте вызова —
+    # иначе круг: при старте приложения оба модуля нужны друг другу
+    from . import deps
+
     return {
         "id": row["id"],
         "email": row["email"],
         "displayName": row["display_name"],
         "avatarUrl": row["avatar_url"],
+        # фронту важно знать, показывать ли ссылку на панель модерации
+        "isAdmin": deps.is_admin_email(row["email"]),
         "createdAt": int(row["created_at"] * 1000),
     }
