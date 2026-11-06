@@ -5,6 +5,7 @@ import { LikesProvider } from "@/lib/state/likes";
 import { UserProvider } from "@/lib/state/session";
 import { ToastProvider } from "@/components/ui/Toast";
 import { HydrationSignal } from "@/components/ui/HydrationSignal";
+import { SwRegister } from "@/components/ui/SwRegister";
 import { Header } from "@/components/layout/Header";
 import { Splash } from "@/components/layout/Splash";
 import { SITE_URL } from "@/lib/site";
@@ -99,6 +100,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {children}
                 </main>
                 <HydrationSignal />
+                <SwRegister />
               </LikesProvider>
             </BoardsProvider>
           </UserProvider>

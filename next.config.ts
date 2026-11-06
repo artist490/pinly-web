@@ -55,6 +55,16 @@ function toBackend(backend: string, path: string) {
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  async headers() {
+    return [
+      {
+        // Service worker обязан обновляться: браузер проверяет скрипт на
+        // каждый заход, и кэш здесь ломал бы обновления бэкенда логики.
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache" }],
+      },
+    ];
+  },
   async rewrites() {
     const backend = process.env.ACCOUNTS_BACKEND_URL ?? "http://127.0.0.1:8000";
     return {

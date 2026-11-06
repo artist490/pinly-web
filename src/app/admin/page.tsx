@@ -5,7 +5,7 @@
 // фронтовский гейт — только экономия клика, а не защита.
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   apiAdminReports,
   apiResolveReport,
@@ -105,16 +105,6 @@ export default function AdminPage() {
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    try {
-      setReports(await apiAdminReports());
-      setDenied(false);
-    } catch (err) {
-      // 403 — вошёл не владелец: панель честно говорит об этом
-      setDenied(true);
-    }
-  }, []);
 
   useEffect(() => {
     if (!user) return;
