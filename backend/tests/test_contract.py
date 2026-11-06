@@ -71,6 +71,7 @@ ROUTES = (
     ("DELETE", "/api/boards/{board_id}"),
     ("DELETE", "/api/boards/{board_id}/pins/{pin_id}"),
     ("DELETE", "/api/comments/{comment_id}"),
+    ("DELETE", "/api/comments/{comment_id}/like"),
     ("DELETE", "/api/likes/{pin_id}"),
     ("DELETE", "/api/media/{media_id}"),
     ("DELETE", "/api/messages/{message_id}"),
@@ -130,6 +131,7 @@ ROUTES = (
     ("POST", "/api/users/{user_id}/follow"),
     ("PUT", "/api/boards/{board_id}/pins/{pin_id}"),
     ("PUT", "/api/boards/{board_id}/secret"),
+    ("PUT", "/api/comments/{comment_id}/like"),
     ("PUT", "/api/likes/{pin_id}"),
 )
 

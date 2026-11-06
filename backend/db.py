@@ -102,10 +102,18 @@ create table if not exists comments (
   id         text primary key,
   pin_id     text not null,
   user_id    text not null references users(id) on delete cascade,
+  parent_id  text,
   text       text not null,
   created_at real not null
 );
 create index if not exists comments_pin_idx on comments (pin_id, created_at asc);
+create index if not exists comments_parent_idx on comments (parent_id);
+create table if not exists comment_likes (
+  user_id    text not null references users(id) on delete cascade,
+  comment_id text not null,
+  created_at real not null,
+  primary key (user_id, comment_id)
+);
 create index if not exists follows_followee_idx on follows (followee_id);
 create table if not exists notifications (
   id         text primary key,
@@ -165,6 +173,7 @@ MIGRATIONS = (
     "alter table pins add column source_url text",
     "alter table media add column external_url text",
     "alter table events add column source text",
+    "alter table comments add column parent_id text",
 )
 
 

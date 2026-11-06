@@ -21,7 +21,11 @@ export type Comment = {
   id: string;
   text: string;
   createdAt: number;
+  likes: number;
+  likedByMe: boolean;
   author: { id: string; name: string; avatarUrl: string | null };
+  /** Ответы — ровно один уровень: у ответа сам список всегда пустой. */
+  replies: Comment[];
 };
 
 /** Витрина профиля целиком: карточка, открытые доски, первая порция пинов.
@@ -76,13 +80,31 @@ export async function apiComments(pinId: string, signal?: AbortSignal): Promise<
   return data.comments;
 }
 
-export async function apiAddComment(pinId: string, text: string): Promise<void> {
+export async function apiAddComment(
+  pinId: string,
+  text: string,
+  parentId?: string,
+): Promise<void> {
   await requestJson(`/api/pin/${pinId}/comments`, {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(parentId ? { text, parent_id: parentId } : { text }),
   });
 }
 
 export async function apiDeleteComment(commentId: string): Promise<void> {
   await requestJson(`/api/comments/${commentId}`, { method: "DELETE" });
+}
+
+export async function apiLikeComment(commentId: string): Promise<number> {
+  const data = await requestJson<{ likes: number }>(`/api/comments/${commentId}/like`, {
+    method: "PUT",
+  });
+  return data.likes;
+}
+
+export async function apiUnlikeComment(commentId: string): Promise<number> {
+  const data = await requestJson<{ likes: number }>(`/api/comments/${commentId}/like`, {
+    method: "DELETE",
+  });
+  return data.likes;
 }

@@ -66,6 +66,26 @@ def notify_comment(actor_id: str, pin_id: str) -> None:
     _notify_pin_owner(actor_id, pin_id, "comment")
 
 
+def notify_reply(actor_id: str, recipient_id: str, pin_id: str | None) -> None:
+    """Ответ на комментарий уведомляет автора родительского комментария,
+    а не владельца пина (тот уже получил notify_comment при его создании)."""
+    if pin_id is None:
+        return
+    with connection() as conn:
+        _notify(conn, recipient_id, actor_id, "reply", pin_id)
+
+
+def notify_comment_like(actor_id: str, comment_id: str) -> None:
+    """Лайк комментария уведомляет автора комментария."""
+    with connection() as conn:
+        comment = conn.execute(
+            "select user_id, pin_id from comments where id = ?", (comment_id,)
+        ).fetchone()
+        if comment is None:
+            return
+        _notify(conn, comment["user_id"], actor_id, "comment_like", comment["pin_id"])
+
+
 def notify_follow(actor_id: str, recipient_id: str) -> None:
     with connection() as conn:
         _notify(conn, recipient_id, actor_id, "follow", None)

@@ -54,6 +54,9 @@ def erase_account(user: sqlite3.Row) -> None:
         likes.remove_rows_of_user_pins(conn, user_id)
         social.remove_user_rows(conn, user_id)
         social.remove_rows_of_user_pins(conn, user_id)
+        # ответы чужих людей на комментарии пользователя: сами его комментарии
+        # уйдут по каскаду FK, а эти — нет
+        social.remove_replies_to_user_comments(conn, user_id)
         accounts.delete_avatar(user)
         accounts.pseudonymise_consent(conn, user_id, user["email"])
         accounts.remove_user(conn, user_id)

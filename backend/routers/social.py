@@ -52,8 +52,10 @@ def subscriptions_feed(me: sqlite3.Row = Depends(current_user)) -> dict:
 
 
 @router.get("/api/pin/{pin_id}/comments")
-def comments_list(pin_id: str) -> dict:
-    return {"comments": social.list_comments(pin_id)}
+def comments_list(
+    pin_id: str, viewer: sqlite3.Row | None = Depends(optional_user)
+) -> dict:
+    return {"comments": social.list_comments(pin_id, viewer["id"] if viewer else None)}
 
 
 @router.post("/api/pin/{pin_id}/comments")
@@ -61,8 +63,14 @@ def comments_create(
     pin_id: str, body: CommentBody, request: Request, me: sqlite3.Row = Depends(current_user)
 ) -> dict:
     ratelimit.rate_limit(request, "comment", limit=30, window_s=3600.0)
-    comment_id = social.add_comment(me["id"], pin_id, body.text)
-    notifications.notify_comment(me["id"], pin_id)
+    comment_id = social.add_comment(me["id"], pin_id, body.text, body.parent_id)
+    if body.parent_id:
+        # ответ уведомляет автора родительского комментария
+        parent_author = social.parent_author_id(body.parent_id)
+        if parent_author:
+            notifications.notify_reply(me["id"], parent_author, pin_id)
+    else:
+        notifications.notify_comment(me["id"], pin_id)
     return {"ok": True, "id": comment_id}
 
 
@@ -70,3 +78,16 @@ def comments_create(
 def comments_delete(comment_id: str, me: sqlite3.Row = Depends(current_user)) -> Response:
     social.delete_comment(me["id"], comment_id)
     return Response(status_code=204)
+
+
+@router.put("/api/comments/{comment_id}/like")
+def comment_like(comment_id: str, request: Request, me: sqlite3.Row = Depends(current_user)) -> dict:
+    ratelimit.rate_limit(request, "comment_like", limit=300, window_s=60.0)
+    likes = social.like_comment(me["id"], comment_id)
+    notifications.notify_comment_like(me["id"], comment_id)
+    return {"ok": True, "likes": likes}
+
+
+@router.delete("/api/comments/{comment_id}/like")
+def comment_unlike(comment_id: str, me: sqlite3.Row = Depends(current_user)) -> dict:
+    return {"ok": True, "likes": social.unlike_comment(me["id"], comment_id)}

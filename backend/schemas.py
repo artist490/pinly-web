@@ -49,6 +49,7 @@ class BoardTitleBody(BaseModel):
 
 class CommentBody(BaseModel):
     text: str
+    parent_id: str | None = None
 
 
 class ChatStartBody(BaseModel):
