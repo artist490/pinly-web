@@ -9,7 +9,7 @@
 
 import sqlite3
 
-from . import accounts, boards, chats, likes, media, moderation, notifications, pins, slides, social, uploads
+from . import accounts, boards, chats, groups, likes, media, moderation, notifications, pins, slides, social, uploads
 from .db import connection
 
 
@@ -54,6 +54,7 @@ def erase_account(user: sqlite3.Row) -> None:
         likes.remove_rows_of_user_pins(conn, user_id)
         social.remove_user_rows(conn, user_id)
         social.remove_rows_of_user_pins(conn, user_id)
+        groups.remove_rows_of_user_pins(conn, user_id)
         moderation.remove_user_rows(conn, user_id)
         # ответы чужих людей на комментарии пользователя: сами его комментарии
         # уйдут по каскаду FK, а эти — нет

@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import DATA_DIR, WEB_ROOT, connection, init_db
 from .embeddings import store
 from .routers import auth, boards, chats, events, feed as feed_routes
-from .routers import img, likes, media, mealdb, notifications, pins as pins_routes
+from .routers import groups, img, likes, media, mealdb, notifications, pins as pins_routes
 from .routers import moderation, seo, social, tags
 
 log = logging.getLogger("pinly")
@@ -139,6 +139,7 @@ def create_app() -> FastAPI:
     app.include_router(pins_routes.router)  # /api/pins*, /api/uploads/*, /api/user-pins
     app.include_router(media.router)  # /api/media*
     app.include_router(social.router)  # /api/users/*, комментарии, /api/feed/subscriptions
+    app.include_router(groups.router)  # /api/groups* — сообщества по тематикам
     app.include_router(chats.router)  # /api/chats*, /api/messages/*
     app.include_router(mealdb.router)  # /api/mealdb/* — прокси TheMealDB
     app.include_router(notifications.router)  # /api/notifications*

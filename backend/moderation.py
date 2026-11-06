@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from . import pins
 from .db import connection
 
-TARGET_TYPES = ("pin", "board", "user")
+TARGET_TYPES = ("pin", "board", "user", "group")
 REASONS = ("spam", "copyright", "offensive")
 REPORTS_PAGE = 100
 
@@ -79,6 +79,15 @@ def report_json(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
             "exists": user is not None,
             "hidden": bool(user["is_blocked"]) if user else False,
         }
+    elif row["target_type"] == "group":
+        group = conn.execute(
+            "select title, is_hidden from communities where id = ?", (row["target_id"],)
+        ).fetchone()
+        target = {
+            "title": group["title"] if group else None,
+            "exists": group is not None,
+            "hidden": bool(group["is_hidden"]) if group else False,
+        }
     else:  # board
         board = conn.execute(
             "select title from boards where id = ?", (row["target_id"],)
@@ -131,6 +140,11 @@ def _user_to_ban(conn: sqlite3.Connection, report: sqlite3.Row) -> str | None:
         return target_id
     if report["target_type"] == "pin":
         return pins.owner_id_of(conn, target_id)
+    if report["target_type"] == "group":
+        row = conn.execute(
+            "select owner_id from communities where id = ?", (target_id,)
+        ).fetchone()
+        return row["owner_id"] if row else None
     row = conn.execute("select user_id from boards where id = ?", (target_id,)).fetchone()
     return row["user_id"] if row else None
 

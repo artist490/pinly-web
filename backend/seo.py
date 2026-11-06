@@ -44,6 +44,12 @@ QUERIES = {
         "order by created_at desc",
         "/tag/",
     ),
+    # группы: скрытые модерацией в карту не попадают — как секретные доски
+    "groups": (
+        "select id, created_at from communities where (is_hidden = 0 or is_hidden is null) "
+        "order by created_at desc",
+        "/group/",
+    ),
 }
 
 KINDS = tuple(QUERIES)

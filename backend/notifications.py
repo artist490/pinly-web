@@ -91,6 +91,24 @@ def notify_follow(actor_id: str, recipient_id: str) -> None:
         _notify(conn, recipient_id, actor_id, "follow", None)
 
 
+def notify_group_pin(actor_id: str, group_id: str, pin_id: str) -> None:
+    """Пин в группе: уведомляем владельца группы, а не каждого участника —
+    иначе активная группа спамила бы всех."""
+    with connection() as conn:
+        owner = conn.execute(
+            "select owner_id from communities where id = ?", (group_id,)
+        ).fetchone()
+        if owner is None:
+            return
+        _notify(conn, owner["owner_id"], actor_id, "group_pin", pin_id)
+
+
+def notify_group_poster(owner_id: str, recipient_id: str) -> None:
+    """Владелец выдал право публикации; pin_id нет — событие про группу."""
+    with connection() as conn:
+        _notify(conn, recipient_id, owner_id, "group_poster", None)
+
+
 def notification_json(conn: sqlite3.Connection, r: sqlite3.Row) -> dict:
     actor = conn.execute(
         "select display_name, avatar_url from users where id = ?", (r["actor_id"],)

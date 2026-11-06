@@ -62,6 +62,22 @@ class ResolveBody(BaseModel):
     action: str
 
 
+class GroupCreateBody(BaseModel):
+    title: str
+    description: str = ""
+    category: str = ""
+
+
+class GroupUpdateBody(BaseModel):
+    title: str
+    description: str = ""
+    category: str = ""
+
+
+class GroupRoleBody(BaseModel):
+    role: str
+
+
 class ChatStartBody(BaseModel):
     userId: str
 

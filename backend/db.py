@@ -149,6 +149,33 @@ create table if not exists messages (
 );
 create index if not exists messages_chat_idx on messages (chat_id, created_at);
 create index if not exists chat_members_user_idx on chat_members (user_id);
+create table if not exists communities (
+  id          text primary key,
+  owner_id    text not null references users(id) on delete cascade,
+  title       text not null,
+  description text not null default '',
+  category    text not null default '',
+  is_hidden   integer not null default 0,
+  created_at  real not null
+);
+create index if not exists communities_owner_idx on communities (owner_id, created_at desc);
+create index if not exists communities_category_idx on communities (category, created_at desc);
+create table if not exists group_members (
+  group_id  text not null references communities(id) on delete cascade,
+  user_id   text not null references users(id) on delete cascade,
+  role      text not null default 'member',
+  joined_at real not null,
+  primary key (group_id, user_id)
+);
+create index if not exists group_members_user_idx on group_members (user_id);
+create table if not exists group_pins (
+  group_id text not null references communities(id) on delete cascade,
+  pin_id   text not null,
+  pin_data text not null,
+  added_by text not null references users(id) on delete cascade,
+  added_at real not null,
+  primary key (group_id, pin_id)
+);
 create table if not exists events (
   id       integer primary key autoincrement,
   ts       real not null,
