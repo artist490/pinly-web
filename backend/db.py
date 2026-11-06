@@ -109,7 +109,6 @@ create table if not exists comments (
   created_at real not null
 );
 create index if not exists comments_pin_idx on comments (pin_id, created_at asc);
-create index if not exists comments_parent_idx on comments (parent_id);
 create table if not exists comment_likes (
   user_id    text not null references users(id) on delete cascade,
   comment_id text not null,
@@ -190,6 +189,13 @@ MIGRATIONS = (
     "alter table users add column is_blocked integer not null default 0",
 )
 
+# Индексы по свежедобавленным колонкам: в SCHEMA их ставить нельзя — на старой
+# базе таблица уже существует, «create table if not exists» её пропустит, и
+# индекс по отсутствующей колонке уронит запуск до применения миграций.
+POST_MIGRATIONS = (
+    "create index if not exists comments_parent_idx on comments (parent_id)",
+)
+
 
 @contextmanager
 def connection() -> Iterator[sqlite3.Connection]:
@@ -223,3 +229,8 @@ def init_db() -> None:
                 conn.execute(ddl)
             except sqlite3.OperationalError:
                 pass  # колонка уже есть
+        for ddl in POST_MIGRATIONS:
+            try:
+                conn.execute(ddl)
+            except sqlite3.OperationalError:
+                pass  # индекс уже есть
