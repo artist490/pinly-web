@@ -34,6 +34,7 @@ const BACKEND_PREFIXES = [
   "/api/comments",
   "/api/chats",
   "/api/messages",
+  "/api/tags",
 ];
 
 const BACKEND_EXACT = [

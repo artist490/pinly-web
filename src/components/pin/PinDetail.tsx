@@ -129,7 +129,7 @@ export function PinDetail({ pin, related }: { pin: Pin; related: Pin[] }) {
             {pin.tags.map((tag) => (
               <li key={tag}>
                 <Link
-                  href={`/search?q=${encodeURIComponent(tag)}`}
+                  href={`/tag/${encodeURIComponent(tag)}`}
                   className="flex min-h-11 items-center rounded-full border border-border-soft bg-background px-3 py-2 text-sm text-muted hover:bg-surface"
                 >
                   #{tag}

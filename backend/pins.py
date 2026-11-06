@@ -140,6 +140,48 @@ def search_user_pins(q: str, limit: int = 4) -> list[dict]:
         return cards(conn, rows)
 
 
+def pins_by_tag(tag: str, limit: int = 60) -> list[dict]:
+    """Пины с точным тегом (без учёта регистра): у страницы тега своё
+    назначение, в отличие от поиска по подстроке в search_user_pins.
+
+    Регистр сравнивает Python, а не SQL: lower() в SQLite понимает только
+    ASCII, и «Кошки» с «кошки» не сошлись бы.
+    """
+    clean = (tag or "").strip().lstrip("#")
+    if not clean:
+        return []
+    wanted = clean.lower()
+    with connection() as conn:
+        rows = conn.execute(
+            "select distinct p.* from pins p join json_each(p.tags) t "
+            "order by p.created_at desc"
+        ).fetchall()
+        found = [
+            row
+            for row in rows
+            if any(t.lower() == wanted for t in json.loads(row["tags"]))
+        ]
+        return cards(conn, found[:limit])
+
+
+def popular_tags(limit: int = 12) -> list[dict]:
+    """Самые частые теги по всем пинам — «тренды» для главной и поиска.
+
+    Группировка тоже в Python: SQL-группировка по lower() склеила бы
+    только латиницу, а кириллические дубли разъехались бы."""
+    with connection() as conn:
+        rows = conn.execute(
+            "select t.value as tag, count(*) as c "
+            "from pins p join json_each(p.tags) t group by t.value"
+        ).fetchall()
+    merged: dict[str, int] = {}
+    for row in rows:
+        key = row["tag"].lower()
+        merged[key] = merged.get(key, 0) + row["c"]
+    best = sorted(merged.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+    return [{"tag": tag, "count": count} for tag, count in best]
+
+
 def pins_of_user(conn: sqlite3.Connection, user_id: str, limit: int | None = None) -> list[sqlite3.Row]:
     """Все пины автора (так их вычитывает стирание аккаунта) либо первые `limit`.
 

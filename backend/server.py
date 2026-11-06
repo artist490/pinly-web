@@ -27,7 +27,7 @@ from .db import DATA_DIR, WEB_ROOT, connection, init_db
 from .embeddings import store
 from .routers import auth, boards, chats, events, feed as feed_routes
 from .routers import img, likes, media, mealdb, notifications, pins as pins_routes
-from .routers import seo, social
+from .routers import seo, social, tags
 
 log = logging.getLogger("pinly")
 
@@ -142,6 +142,7 @@ def create_app() -> FastAPI:
     app.include_router(chats.router)  # /api/chats*, /api/messages/*
     app.include_router(mealdb.router)  # /api/mealdb/* — прокси TheMealDB
     app.include_router(notifications.router)  # /api/notifications*
+    app.include_router(tags.router)  # /api/tags/* — тренды и страницы тегов
     app.include_router(events.router)  # /api/ev* — события продукта (см. events.py)
     app.include_router(seo.router)  # /api/seo/urls — адреса для sitemap.ts
     app.include_router(feed_routes.router)  # /api/feed, /api/pin/{id}[/related]

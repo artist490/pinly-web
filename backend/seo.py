@@ -30,6 +30,15 @@ QUERIES = {
         "/board/",
     ),
     "users": ("select id, created_at from users order by created_at desc", "/profile/"),
+    # страницы тегов: имя тега становится последним сегментом пути; фронт
+    # энкодит его в sitemap.ts сам (теги бывают кириллические). Группировка
+    # по сырому значению: SQL-ный lower() не знает кириллицу.
+    "tags": (
+        "select t.value as id, max(p.created_at) as created_at "
+        "from pins p join json_each(p.tags) t group by t.value "
+        "order by created_at desc",
+        "/tag/",
+    ),
 }
 
 KINDS = tuple(QUERIES)

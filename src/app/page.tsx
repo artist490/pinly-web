@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { SESSION_COOKIE, getFeedPage } from "@/lib/server/feed";
 import { HomeFeed } from "@/components/feed/HomeFeed";
+import { PopularTags } from "@/components/ui/PopularTags";
 import { SkeletonGrid } from "@/components/ui/SkeletonGrid";
 import { CATEGORY_BY_NAME, categoryHref } from "@/lib/categories";
 import { pageMetadata } from "@/lib/server/seo";
@@ -40,7 +41,13 @@ async function HomeContent({ searchParams }: Props) {
 
   const session = (await cookies()).get(SESSION_COOKIE)?.value ?? null;
   const first = await getFeedPage({ category, session });
-  return <HomeFeed category={category} initialPins={first.pins} initialCursor={first.nextCursor} />;
+  return (
+    <>
+      <HomeFeed category={category} initialPins={first.pins} initialCursor={first.nextCursor} />
+      {/* Тренды под лентой: ссылки на страницы тегов, данные бэкенда */}
+      <PopularTags />
+    </>
+  );
 }
 
 export default async function Home({ searchParams }: Props) {

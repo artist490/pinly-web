@@ -63,9 +63,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entry("/", 1),
     // чистые адреса категорий; старый ?category= закрыт от обхода в robots.ts
     ...CATEGORY_PAGES.map((page) => entry(`/category/${page.slug}`, 0.7)),
-    // пины, доски и профили из базы. Моки ленты в карту не идут: это picsum-
-    // случайность с выдуманными авторами и нарисованными лайками, и обещать
-    // её поисковику — значит просить индексировать бутафорию.
-    ...dynamic.map((u) => entry(u.path, priorityOf(u.path), u.lastmod)),
+    // пины, доски, профили и теги из базы. Моки ленты в карту не идут: это
+    // picsum-случайность с выдуманными авторами и нарисованными лайками, и
+    // обещать её поисковику — значит просить индексировать бутафорию.
+    // Теги бывают кириллические: encodeURI превращает их в легальный URL.
+    ...dynamic.map((u) => entry(encodeURI(u.path), priorityOf(u.path), u.lastmod)),
   ];
 }

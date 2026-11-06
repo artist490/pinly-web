@@ -102,6 +102,8 @@ ROUTES = (
     ("GET", "/api/pin/{pin_id}/related"),
     ("GET", "/api/saves-count"),
     ("GET", "/api/seo/urls"),
+    ("GET", "/api/tags/{tag}/pins"),
+    ("GET", "/api/tags/popular"),
     ("GET", "/api/taste/pins"),
     ("GET", "/api/uploads/{name}"),
     ("GET", "/api/user-pins"),
