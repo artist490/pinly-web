@@ -1,10 +1,16 @@
-// Транспорт до RouterAI для node-скриптов (index-pins, probe-embeddings).
-// Формы запросов берутся из embeddings-wire.mjs — тот же источник правды, что
-// у TS-провайдера сайта, поэтому формат не может разойтись между сайтом и
-// индексатором.
+// Транспорт до провайдера эмбеддингов для node-скриптов (index-pins,
+// probe-embeddings). Формы запросов берутся из embeddings-wire.mjs — тот же
+// источник правды, что у TS-провайдера сайта, поэтому формат не может
+// разойтись между сайтом и индексатором.
 
 import { join } from "node:path";
-import { imageRequests, parseVectors, textBody } from "../src/lib/server/providers/embeddings-wire.mjs";
+import {
+  imageRequests,
+  parseVectors,
+  TASK_PASSAGE,
+  TASK_QUERY,
+  textBody,
+} from "../src/lib/server/providers/embeddings-wire.mjs";
 import { apiKey, loadEnv } from "./env.mjs";
 
 /** Куда пишется векторный индекс — общий путь у индексатора и пробника. */
@@ -20,8 +26,9 @@ export async function embedClient() {
   const key = apiKey(env);
   const config = {
     baseUrl: env.EMBED_BASE_URL ?? env.VOYAGE_BASE_URL ?? "https://routerai.ru/api/v1",
-    model: env.EMBED_MODEL ?? "voyageai/voyage-multimodal-3.5",
+    model: env.EMBED_MODEL ?? "cohere/embed-5-fast",
     dimensions: Number(env.EMBED_DIMENSIONS ?? 1024),
+    visionModel: env.VISION_MODEL ?? "google/gemini-2.5-flash",
     key,
   };
 
@@ -36,15 +43,25 @@ export async function embedClient() {
     return res.json();
   }
 
-  /** Текстовые векторы батчем; без dimensions — если провайдер их не знает. */
-  async function texts(list) {
+  /**
+   * Текстовые векторы батчем. Задача по умолчанию — passage: индексатор
+   * складывает в хранилище документы, а не запросы. Без dimensions — если
+   * провайдер их не знает.
+   */
+  async function texts(list, task = TASK_PASSAGE) {
     try {
-      const withDims = await post("/embeddings", textBody(config.model, list, config.dimensions, true));
+      const withDims = await post(
+        "/embeddings",
+        textBody(config.model, list, config.dimensions, true, task),
+      );
       return parseVectors(withDims, list.length, config.dimensions);
     } catch (err) {
       // Matryoshka-трюк: режем вектор сами
       if (!/ 400\b/.test(err.message)) throw err;
-      const plain = await post("/embeddings", textBody(config.model, list, config.dimensions, false));
+      const plain = await post(
+        "/embeddings",
+        textBody(config.model, list, config.dimensions, false),
+      );
       return parseVectors(plain, list.length, config.dimensions);
     }
   }
@@ -53,30 +70,57 @@ export async function embedClient() {
   // победителя помним на весь прогон и ставим первым.
   let workingFormat = null;
 
-  async function image(dataUrl) {
-    const requests = imageRequests(config.model, [dataUrl], config.dimensions);
-    const winner = requests.find((r) => r.format === workingFormat);
-    const order = winner ? [winner, ...requests.filter((r) => r !== winner)] : requests;
-    let lastError = null;
-    for (const request of order) {
-      try {
-        const vectors = parseVectors(await post(request.path, request.body), 1, config.dimensions);
-        workingFormat = request.format;
-        return vectors[0];
-      } catch (err) {
-        lastError = err;
-      }
-    }
-    throw new Error(`ни один формат не принят: ${lastError.message}`);
+  // Шлюз принимает в /embeddings только строки и data-URL токенизирует как
+  // текст (косинус «картинка ↔ та же строка» = 1.0 на трёх моделях). Поэтому
+  // картинка сначала переводится в описание vision-моделью, а вектор считается
+  // уже по описанию — так же, как это делает сайт (providers/vision.ts).
+  const CAPTION_PROMPT =
+    "Опиши изображение для поиска по картинкам: 1–2 предложения. Назови главные " +
+    "объекты, цвета, материал, стиль и обстановку. Без вступлений и оценок — " +
+    "только описание.";
+
+  async function caption(dataUrl) {
+    const payload = await post("/chat/completions", {
+      model: config.visionModel,
+      max_tokens: 160,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: CAPTION_PROMPT },
+            { type: "image_url", image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+    });
+    const text = payload?.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error("vision: пустой ответ");
+    return text;
+  }
+
+  /** Вектор картинки: описание → текстовый эмбеддинг. */
+  async function image(dataUrl, task = TASK_PASSAGE) {
+    const description = await caption(dataUrl);
+    const [vector] = await texts([description], task);
+    return vector;
   }
 
   /** По одному запросу на каждый вариант: что именно принимает провайдер. */
-  async function probeImage(dataUrl) {
-    const requests = imageRequests(config.model, [dataUrl], config.dimensions);
+  async function probeImage(dataUrl, task = TASK_QUERY) {
+    const requests = imageRequests(config.model, [dataUrl], config.dimensions, task);
     const results = [];
     for (const request of requests) {
       try {
         const vectors = parseVectors(await post(request.path, request.body), 1, config.dimensions);
+        if (request.textOnly) {
+          results.push({
+            format: request.format,
+            path: request.path,
+            ok: false,
+            error: "принят, но вернул текстовый вектор от data-URL — картинка не кодируется",
+          });
+          continue;
+        }
         workingFormat = request.format;
         results.push({ format: request.format, path: request.path, ok: true, dim: vectors[0].length });
       } catch (err) {
@@ -86,7 +130,7 @@ export async function embedClient() {
     return results;
   }
 
-  return { config, post, texts, image, probeImage, format: () => workingFormat };
+  return { config, post, texts, caption, image, probeImage, format: () => workingFormat };
 }
 
 export function cosine(a, b) {

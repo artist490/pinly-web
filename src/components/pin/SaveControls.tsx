@@ -6,8 +6,11 @@
 import { useEffect, useState } from "react";
 import type { Pin } from "@/lib/pin";
 import { useBoards } from "@/lib/state/boards";
+import { useUser } from "@/lib/state/session";
 import { boardPinCount } from "@/lib/plural";
+import { apiAddGroupPin, apiPostableGroups } from "@/lib/api/groups";
 import { IconChevronDown, IconCheck } from "@/components/ui/Icons";
+import { useToast } from "@/components/ui/Toast";
 import { track } from "@/lib/track";
 
 export function SaveControls({ pin, size = "compact" }: { pin: Pin; size?: "compact" | "large" }) {
@@ -23,6 +26,33 @@ export function SaveControls({ pin, size = "compact" }: { pin: Pin; size?: "comp
   } = useBoards();
   const [open, setOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [groups, setGroups] = useState<{ id: string; title: string }[]>([]);
+  const [savedGroups, setSavedGroups] = useState<Set<string>>(new Set());
+  const { user } = useUser();
+  const { show } = useToast();
+
+  // Группы, куда вошедший может публиковать. Спрашиваем один раз при открытии
+  // меню: список меняется редко, а лишний запрос на каждую карточку ленты
+  // не нужен. Пустой список для закрытого меню — не повод синхронно чистить
+  // состояние: блок групп рисуется только внутри открытого меню.
+  useEffect(() => {
+    if (!open || !user) return;
+    const controller = new AbortController();
+    apiPostableGroups(controller.signal)
+      .then(setGroups)
+      .catch(() => setGroups([]));
+    return () => controller.abort();
+  }, [open, user]);
+
+  const saveToGroup = async (groupId: string) => {
+    try {
+      await apiAddGroupPin(groupId, pin);
+      setSavedGroups((prev) => new Set(prev).add(groupId));
+      show("Пин добавлен в группу");
+    } catch {
+      show("Не удалось добавить пин в группу.");
+    }
+  };
 
   const savedHere = activeBoardId ? isSavedIn(activeBoardId, pin.id) : false;
 
@@ -173,6 +203,41 @@ export function SaveControls({ pin, size = "compact" }: { pin: Pin; size?: "comp
                 Создать
               </button>
             </div>
+            {/* Группы отдельным блоком: это не личная доска, а общая лента
+                тематики — смешивать их в одном списке значит путать «моё»
+                и «общее». Блок есть только у вошедшего, у кого есть права. */}
+            {groups.length > 0 && (
+              <div className="mt-2 border-t border-border-soft pt-2">
+                <p className="px-1 pb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                  В группу
+                </p>
+                <ul className="max-h-40 space-y-0.5 overflow-y-auto">
+                  {groups.map((group) => {
+                    const done = savedGroups.has(group.id);
+                    return (
+                      <li key={group.id}>
+                        <button
+                          type="button"
+                          role="menuitemcheckbox"
+                          aria-checked={done}
+                          onClick={() => saveToGroup(group.id)}
+                          className="flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-sm hover:bg-surface-hover"
+                        >
+                          <span
+                            className={`grid h-5 w-5 shrink-0 place-items-center rounded-md ${
+                              done ? "bg-accent-fill text-accent-on" : "bg-surface text-transparent"
+                            }`}
+                          >
+                            <IconCheck size={12} />
+                          </span>
+                          <span className="flex-1 truncate">{group.title}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
         </>
       )}

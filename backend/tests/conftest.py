@@ -19,6 +19,11 @@ os.environ["PINLY_JWT_SECRET"] = "test-secret-0123456789"
 # 600k итераций PBKDF2 на каждый вход — это минута на прогон; в тестах хватает
 # минимума, проверяется же логика, а не стойкость хеша.
 os.environ["PINLY_PBKDF2_ITERS"] = "1000"
+# Панель модерации и сводка закрыты без PINLY_OWNER_EMAIL (fail-closed).
+# Тестам нужен доступ к ним, поэтому локальный обход включён явно — ровно тем
+# флагом, которым пользуется локальный стенд. Тесты, проверяющие сам гейт,
+# убирают его через monkeypatch.
+os.environ["PINLY_ALLOW_LOCAL_ADMIN"] = "1"
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

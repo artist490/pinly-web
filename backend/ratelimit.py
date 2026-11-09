@@ -52,6 +52,17 @@ def rate_limit(request: Request, action: str, limit: int = 20, window_s: float =
     _rate_limit(f"{action}:{client_ip(request)}", limit, window_s)
 
 
+def rate_limit_key(bucket: str, limit: int, window_s: float) -> None:
+    """Лимит по собственному ключу, а не по адресу клиента.
+
+    Нужен для входа: за прокси у всех один IP, и лимит по адресу одинаково
+    бьёт по своим и по чужим — 20 неверных пар блокируют вход всем на пять
+    минут. Счётчик по e-mail ограничивает перебор конкретного аккаунта и не
+    задевает остальных. Оба лимита работают одновременно.
+    """
+    _rate_limit(bucket, limit, window_s)
+
+
 # --- адрес клиента ---
 
 def client_ip(request: Request) -> str:

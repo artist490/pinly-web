@@ -37,6 +37,7 @@ const BACKEND_PREFIXES = [
   "/api/tags",
   "/api/reports",
   "/api/admin",
+  "/api/groups",
 ];
 
 const BACKEND_EXACT = [
@@ -52,6 +53,51 @@ function toBackend(backend: string, path: string) {
   return { source: path, destination: `${backend}${path}` };
 }
 
+// Заголовки безопасности ставятся один раз на весь сайт, а не в каждом роуте.
+// CSP — единственный слой, который переживает ошибку в рендере: без него любая
+// инъекция в разметку исполняется с полными правами страницы.
+//
+// script-src пока с 'unsafe-inline': в layout.tsx два инлайн-скрипта (тема и
+// заставка) пишутся литералами, а Next добавляет свои для гидрации. Переход на
+// nonce — отдельный шаг через middleware; до него CSP закрывает object, base,
+// frame и form-action, но не инлайн-XSS.
+//
+// 'unsafe-eval' и ws: нужны только dev-серверу (HMR и React Refresh). В
+// прод-сборку они не попадают — иначе CSP перестаёт что-либо значить.
+const isDev = process.env.NODE_ENV !== "production";
+
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  // свои /api/img и /api/uploads, оптимизатор next/image (self),
+  // data:/blob: для превью и офлайн-кэша service worker'а
+  "img-src 'self' data: blob: https://images.weserv.nl",
+  "media-src 'self' blob:",
+  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  "font-src 'self'",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+].join("; ");
+
+const SECURITY_HEADERS = [
+  { key: "Content-Security-Policy", value: CSP },
+  // Браузеру нечего угадывать тип. Загрузки и прокси уже отдают nosniff,
+  // здесь — на весь сайт, включая HTML-страницы.
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  // Встраиваний нет ни у одного экрана: форма входа в iframe — это кликджекинг
+  { key: "X-Frame-Options", value: "DENY" },
+  // Полный адрес страницы уходит только на свой origin; внешним хостам
+  // (CDN картинок) достаётся лишь имя домена
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+];
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
@@ -61,7 +107,17 @@ const nextConfig: NextConfig = {
         // Service worker обязан обновляться: браузер проверяет скрипт на
         // каждый заход, и кэш здесь ломал бы обновления бэкенда логики.
         source: "/sw.js",
-        headers: [{ key: "Cache-Control", value: "no-cache" }],
+        headers: [
+          { key: "Cache-Control", value: "no-cache" },
+          ...SECURITY_HEADERS,
+        ],
+      },
+      {
+        // Всё остальное, включая ответы проксированного /api/*: заголовки
+        // должны быть и на JSON, и на HTML — перебор путей и MIME-sniffing
+        // начинаются именно с ответов API.
+        source: "/(.*)",
+        headers: SECURITY_HEADERS,
       },
     ];
   },

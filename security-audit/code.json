@@ -1,0 +1,171 @@
+{
+  "title": "Статический анализ кода",
+  "generatedAt": "2026-11-09T15:57:26.354Z",
+  "counts": {
+    "critical": 0,
+    "high": 4,
+    "medium": 6,
+    "low": 4,
+    "info": 0
+  },
+  "extra": {
+    "root": "C:\\Users\\student\\Desktop\\проект\\pinly-web",
+    "filesScanned": 241
+  },
+  "findings": [
+    {
+      "id": "sql-injection",
+      "title": "Возможная SQL-инъекция: подстановка в запрос (проверить источник данных)",
+      "severity": "high",
+      "where": "backend/groups.py:162",
+      "evidence": "rows = conn.execute(",
+      "cwe": 89,
+      "owasp": "A03:2021 Injection",
+      "fix": "параметризованный запрос (%s / ?) или ORM-фильтр вместо конкатенации",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "sql-injection",
+      "title": "Возможная SQL-инъекция: подстановка в запрос (проверить источник данных)",
+      "severity": "high",
+      "where": "backend/pins.py:118",
+      "evidence": "row = conn.execute(",
+      "cwe": 89,
+      "owasp": "A03:2021 Injection",
+      "fix": "параметризованный запрос (%s / ?) или ORM-фильтр вместо конкатенации",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "sql-injection",
+      "title": "Возможная SQL-инъекция: подстановка в запрос (проверить источник данных)",
+      "severity": "high",
+      "where": "backend/pins.py:127",
+      "evidence": "rows = conn.execute(",
+      "cwe": 89,
+      "owasp": "A03:2021 Injection",
+      "fix": "параметризованный запрос (%s / ?) или ORM-фильтр вместо конкатенации",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "sql-injection",
+      "title": "Возможная SQL-инъекция: подстановка в запрос (проверить источник данных)",
+      "severity": "high",
+      "where": "backend/pins.py:133",
+      "evidence": "rows = conn.execute(",
+      "cwe": 89,
+      "owasp": "A03:2021 Injection",
+      "fix": "параметризованный запрос (%s / ?) или ORM-фильтр вместо конкатенации",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "xss-html",
+      "title": "Вставка HTML без экранирования (XSS) (проверить источник данных)",
+      "severity": "medium",
+      "where": "src/app/layout.tsx:66",
+      "evidence": "dangerouslySetInnerHTML={{",
+      "cwe": 79,
+      "owasp": "A03:2021 Injection",
+      "fix": "текстовые узлы вместо innerHTML; если HTML нужен — DOMPurify.sanitize",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "xss-html",
+      "title": "Вставка HTML без экранирования (XSS) (проверить источник данных)",
+      "severity": "medium",
+      "where": "src/app/layout.tsx:81",
+      "evidence": "dangerouslySetInnerHTML={{",
+      "cwe": 79,
+      "owasp": "A03:2021 Injection",
+      "fix": "текстовые узлы вместо innerHTML; если HTML нужен — DOMPurify.sanitize",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "xss-html",
+      "title": "Вставка HTML без экранирования (XSS) (проверить источник данных)",
+      "severity": "medium",
+      "where": "src/app/profile/[id]/page.tsx:62",
+      "evidence": "dangerouslySetInnerHTML={{ __html: jsonLdText(profileJsonLd(data)) }}",
+      "cwe": 79,
+      "owasp": "A03:2021 Injection",
+      "fix": "текстовые узлы вместо innerHTML; если HTML нужен — DOMPurify.sanitize",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "xss-html",
+      "title": "Вставка HTML без экранирования (XSS) (проверить источник данных)",
+      "severity": "medium",
+      "where": "src/app/pin/[id]/page.tsx:44",
+      "evidence": "dangerouslySetInnerHTML={{ __html: jsonLdText(jsonLd) }}",
+      "cwe": 79,
+      "owasp": "A03:2021 Injection",
+      "fix": "текстовые узлы вместо innerHTML; если HTML нужен — DOMPurify.sanitize",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "xss-html",
+      "title": "Вставка HTML без экранирования (XSS) (проверить источник данных)",
+      "severity": "medium",
+      "where": "src/app/group/[id]/page.tsx:59",
+      "evidence": "{jsonLd && <script type=\"application/ld+json\" dangerouslySetInnerHTML={{ __html: jsonLd }} />}",
+      "cwe": 79,
+      "owasp": "A03:2021 Injection",
+      "fix": "текстовые узлы вместо innerHTML; если HTML нужен — DOMPurify.sanitize",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "xss-html",
+      "title": "Вставка HTML без экранирования (XSS) (проверить источник данных)",
+      "severity": "medium",
+      "where": "src/app/board/[id]/page.tsx:52",
+      "evidence": "dangerouslySetInnerHTML={{ __html: jsonLdText(boardJsonLd(board)) }}",
+      "cwe": 79,
+      "owasp": "A03:2021 Injection",
+      "fix": "текстовые узлы вместо innerHTML; если HTML нужен — DOMPurify.sanitize",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "weak-crypto",
+      "title": "MD5/SHA-1 в коде (проверить источник данных)",
+      "severity": "low",
+      "where": "src/lib/server/img-proxy.ts:9",
+      "evidence": "return createHash(\"md5\").update(url).digest(\"hex\");",
+      "cwe": 327,
+      "owasp": "A02:2021 Cryptographic Failures",
+      "fix": "SHA-256+ для хэшей; для паролей — argon2/bcrypt/scrypt",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "weak-crypto",
+      "title": "MD5/SHA-1 в коде (проверить источник данных)",
+      "severity": "low",
+      "where": "src/lib/server/providers/cache.ts:27",
+      "evidence": "const digest = createHash(\"sha1\").update(key).digest(\"hex\");",
+      "cwe": 327,
+      "owasp": "A02:2021 Cryptographic Failures",
+      "fix": "SHA-256+ для хэшей; для паролей — argon2/bcrypt/scrypt",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "weak-crypto",
+      "title": "MD5/SHA-1 в коде (проверить источник данных)",
+      "severity": "low",
+      "where": "backend/cache.py:34",
+      "evidence": "return CACHE_DIR / f\"{hashlib.sha1(key.encode('utf-8')).hexdigest()}.json\"",
+      "cwe": 327,
+      "owasp": "A02:2021 Cryptographic Failures",
+      "fix": "SHA-256+ для хэшей; для паролей — argon2/bcrypt/scrypt",
+      "confidence": "средняя (источник данных не виден)"
+    },
+    {
+      "id": "weak-crypto",
+      "title": "MD5/SHA-1 в коде (проверить источник данных)",
+      "severity": "low",
+      "where": "backend/imgproxy.py:43",
+      "evidence": "file = CACHE_DIR / \"img\" / f\"{hashlib.md5(u.encode('utf-8')).hexdigest()}.bin\"",
+      "cwe": 327,
+      "owasp": "A02:2021 Cryptographic Failures",
+      "fix": "SHA-256+ для хэшей; для паролей — argon2/bcrypt/scrypt",
+      "confidence": "средняя (источник данных не виден)"
+    }
+  ]
+}

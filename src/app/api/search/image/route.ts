@@ -74,7 +74,14 @@ export async function POST(req: NextRequest) {
 
   switch (result.status) {
     case "ok":
-      return NextResponse.json({ pins: result.pins, indexed: result.indexed });
+      // caption отдаём наружу: он объясняет, что именно искали. Без него
+      // пустая выдача выглядит как поломка, хотя модель просто не узнала
+      // на фото ничего из ленты.
+      return NextResponse.json({
+        pins: result.pins,
+        indexed: result.indexed,
+        caption: result.caption,
+      });
     case "no-key":
       return NextResponse.json(
         { error: "Поиск по фото не настроен: добавьте EMBED_API_KEY в web/.env.local." },
@@ -97,7 +104,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: TOO_LARGE_TEXT }, { status: 413 });
     case "upstream-failed": {
       // Клиенту — общая фраза, провайдеру — ничего: message может содержать
-      // кусок ответа RouterAI. Диагностика остаётся в логах сервера.
+      // кусок ответа провайдера. Диагностика остаётся в логах сервера.
       console.warn(`[search/image] ${result.message}`);
       return NextResponse.json({ error: "Провайдер эмбеддингов не ответил." }, { status: 502 });
     }

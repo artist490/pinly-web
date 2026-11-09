@@ -29,6 +29,7 @@ export function NavLinks() {
       {link("/", "Главная")}
       {link("/subscriptions", "Подписки")}
       {link("/boards", "Доски")}
+      {link("/groups", "Группы")}
     </>
   );
 }

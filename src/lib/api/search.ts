@@ -4,7 +4,7 @@
 import type { Pin } from "@/lib/pin";
 import { ApiError, requestMultipart } from "@/lib/api/http";
 
-export type PhotoSearchResponse = { pins: Pin[]; indexed: number };
+export type PhotoSearchResponse = { pins: Pin[]; indexed: number; caption?: string };
 
 export class PhotoSearchUnavailable extends Error {
   constructor(message: string, readonly retryable: boolean) {

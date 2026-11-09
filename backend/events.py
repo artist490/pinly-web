@@ -13,7 +13,6 @@
 #   - из реферера остаётся только хост.
 
 import hashlib
-import os
 import time
 from datetime import date
 
@@ -23,7 +22,7 @@ from . import boards
 from .ratelimit import client_ip
 from .session import signing_secret
 from .db import connection
-from .deps import session_payload
+from .deps import require_owner, session_payload
 
 # Белый список: name уходит и в SQL, и в сводку — произвольные строки тут не нужны.
 # pin_view — показ страницы пина (главный вход с поиска), signup_open — форма
@@ -117,20 +116,12 @@ def summary(request: Request, days: int) -> dict:
     """Сводка: события по дням и уникальные посетители. Агрегаты, ничего
     персонального.
 
-    Сводка — про метрику, за которую платит рекламодатель: в проде её видит
-    только владелец (PINLY_OWNER_EMAIL), причём адрес не светится в ответах.
-    Локально без настроек — любой вошедший, иначе смоук нельзя написать без
-    внешнего конфига.
+    Сводка — про метрику, за которую платит рекламодатель: её видит только
+    владелец (PINLY_OWNER_EMAIL), причём адрес не светится в ответах.
+    Без настроенного владельца эндпоинт закрыт; локально открывается явным
+    PINLY_ALLOW_LOCAL_ADMIN=1 (см. deps.require_owner).
     """
-    payload = session_payload(request)
-    if not payload or "sub" not in payload:
-        raise HTTPException(401, "login required")
-    owner = os.environ.get("PINLY_OWNER_EMAIL", "").strip().lower()
-    production = os.environ.get("PINLY_ENV", "").strip().lower() == "production"
-    if owner and str(payload.get("email", "")).lower() != owner:
-        raise HTTPException(403, "not owner")
-    if production and not owner:
-        raise HTTPException(404, "summary disabled")
+    require_owner(session_payload(request), "summary")
     window = window_days(days, 7)
     since = f"-{window - 1} days"
     with connection() as conn:

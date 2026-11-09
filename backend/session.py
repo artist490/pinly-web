@@ -102,12 +102,26 @@ def is_https(request: Request) -> bool:
     return request.url.scheme == "https"
 
 
-def set_session_cookie(request: Request, response: Response, user_id: str, email: str) -> None:
+def set_session_cookie(
+    request: Request, response: Response, user_id: str, email: str, session_version: int = 0
+) -> None:
     """30 дней, httpOnly, SameSite=lax: кросс-пост запросы её не несут, а
-    переход по ссылке из чата — несут, вход с сохранённой ссылки остаётся входом."""
+    переход по ссылке из чата — несут, вход с сохранённой ссылки остаётся входом.
+
+    sv — поколение сессий на момент входа. Выход и бан поднимают его в базе, и
+    все ранее выпущенные токены перестают совпадать (deps.session_revoked):
+    без этого скопированная кука жила бы все 30 дней, сколько бы раз
+    пользователь ни «выходил».
+    """
     now = time.time()
     token = jwt_encode(
-        {"sub": user_id, "email": email, "iat": int(now), "exp": int(now + SESSION_TTL_S)}
+        {
+            "sub": user_id,
+            "email": email,
+            "sv": int(session_version or 0),
+            "iat": int(now),
+            "exp": int(now + SESSION_TTL_S),
+        }
     )
     response.set_cookie(
         SESSION_COOKIE,

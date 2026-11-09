@@ -1,45 +1,65 @@
-// Проводка запросов к RouterAI: один источник правды для сайта (TS) и
-// индексатора (node-скрипт). Держится в .mjs без типов и алиасов, чтобы его
-// можно было импортировать с обеих сторон без сборки.
+// Проводка запросов к провайдеру эмбеддингов: один источник правды для сайта
+// (TS) и индексатора (node-скрипт). Держится в .mjs без типов и алиасов, чтобы
+// его можно было импортировать с обеих сторон без сборки.
 //
-// Формат запроса с КАРТИНКОЙ в публичной документации RouterAI не описан:
-// страница voyage-multimodal-3.5 показывает только текстовый /embeddings.
-// Поэтому вариантов три, они перебираются по очереди, а победитель
-// запоминается (npm run probe:embeddings показывает, какой сработал).
+// Провайдер по умолчанию — RouterAI (https://routerai.ru), модель
+// cohere/embed-5-fast: мультимодальная (текст и картинки в одном пространстве),
+// 128K контекста, размерность 256…2048 на выбор. Страница модели обещает
+// картинки, но формат тела с картинкой не показывает, поэтому варианты
+// перебираются, а победитель запоминается — `npm run probe:embeddings` печатает,
+// какой сработал.
 
-/** Тело текстового запроса. dimensions часть провайдеров не принимает. */
-export function textBody(model, input, dimensions, withDimensions) {
+/**
+ * Роли запроса у Cohere: документ при индексации и запрос при поиске — разные.
+ * Подмена одной на другую тихо роняет качество, поэтому роль есть и в ключе
+ * кэша батчей.
+ */
+export const TASK_QUERY = "search_query";
+export const TASK_PASSAGE = "search_document";
+
+/**
+ * Тело текстового запроса. dimensions и input_type принимают не все
+ * провайдеры, поэтому оба поля опциональны, а вызывающий код умеет повторить
+ * запрос без них.
+ */
+export function textBody(model, input, dimensions, withDimensions, task) {
   return {
     model,
     input,
     encoding_format: "float",
     ...(withDimensions ? { dimensions } : {}),
+    ...(task ? { input_type: task } : {}),
   };
 }
 
 /**
  * Запросы с картинками в порядке правдоподобия:
- *  1. OpenAI-совместимый /embeddings с content-частями;
- *  2. /embeddings, куда data-URL передают как обычную строку input;
- *  3. voyage-native /multimodalembeddings (собственный формат Voyage).
+ *  1. родной формат Cohere: /embeddings с inputs = [{content: [image_url]}] и
+ *     input_type — так модель обучена видеть картинки;
+ *  2. OpenAI-совместимый /embeddings, где картинка — часть содержимого input;
+ *  3. /embeddings, куда data-URL передают обычной строкой input (так умеет
+ *     PlusVibe — но там картинка превращается в текст, см. docs/embeddings.md).
  *
- * Порядок не с потолка: замер 2026-10-31 без ключа — RouterAI отвечает на
- * /multimodalembeddings «404 page not found», тогда как /embeddings жив
- * (401 со стандартным JSON). Значит собственные voyage-эндпоинты роутер не
- * проксирует, и вариант остаётся последним — на случай, если их откроют.
+ * Провайдер, который поля не знает, ответит 400, и его заменит следующий формат.
  */
-export function imageRequests(model, urls, dimensions) {
+export function imageRequests(model, urls, dimensions, task) {
   const content = urls.map((url) => [{ type: "image_url", image_url: { url } }]);
   return [
     {
-      format: "openai-parts",
+      format: "cohere-native",
       path: "/embeddings",
-      body: textBody(model, content, dimensions, true),
+      body: {
+        model,
+        inputs: content.map((parts) => ({ content: parts })),
+        input_type: task ?? TASK_PASSAGE,
+        embedding_types: ["float"],
+        ...(dimensions ? { output_dimension: dimensions } : {}),
+      },
     },
     {
-      format: "data-url",
+      format: "openai-parts",
       path: "/embeddings",
-      body: textBody(model, urls, dimensions, true),
+      body: textBody(model, content, dimensions, true, task),
     },
     {
       format: "voyage-native",
@@ -47,15 +67,29 @@ export function imageRequests(model, urls, dimensions) {
       body: {
         model,
         inputs: content.map((parts) => ({ content: parts })),
-        input_type: "search_document",
-        output_dimension: dimensions,
+        input_type: task ?? TASK_PASSAGE,
+        ...(dimensions ? { output_dimension: dimensions } : {}),
       },
+    },
+    {
+      // Последним — потому что этот формат опаснее всех: провайдер, который
+      // картинок не понимает, примет строку и вернёт её текстовый вектор.
+      // Векторы будут, поиск будет работать, но искать он будет по имени
+      // файла в base64. Помечено textOnly, чтобы вызывающий код не принял
+      // такой «успех» за мультимодальность.
+      format: "data-url",
+      textOnly: true,
+      path: "/embeddings",
+      body: textBody(model, urls, dimensions, true, task),
     },
   ];
 }
 
 /** Ответ OpenAI-совместимого или voyage-совместимого эндпоинта. */
 export function parseVectors(payload, expected, dimensions) {
+  // Cohere-native кладёт векторы в embeddings.float, OpenAI — в data[].embedding
+  const flat = payload?.embeddings?.float;
+  if (Array.isArray(flat)) return flat.slice(0, expected);
   const data = payload?.data;
   if (!Array.isArray(data) || data.length === 0) throw new Error("embeddings: пустой ответ");
   return data.slice(0, expected).map((item) => {

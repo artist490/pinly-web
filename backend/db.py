@@ -214,6 +214,9 @@ MIGRATIONS = (
     "alter table comments add column parent_id text",
     "alter table pins add column is_hidden integer not null default 0",
     "alter table users add column is_blocked integer not null default 0",
+    # номер поколения сессий: растёт при выходе и бане, старые токены перестают
+    # совпадать с ним и больше не открывают ничего (deps.session_revoked)
+    "alter table users add column session_version integer not null default 0",
 )
 
 # Индексы по свежедобавленным колонкам: в SCHEMA их ставить нельзя — на старой

@@ -112,6 +112,37 @@ async def access_log(request: Request, call_next):
     return response
 
 
+# Заголовки безопасности для ответов API. Страницы получают их из
+# next.config.ts, но на rewrites в чужой origin (а бэкенд — именно такой)
+# заголовки Next не применяются: /api/* уходит сюда, и без этой прослойки
+# JSON-ответы остались бы без nosniff и frame-защиты.
+#
+# CSP на JSON смысла не несёт, но и не мешает. Исключение — сами файлы
+# (/api/uploads, /api/img): их открывают прямой навигацией, а там CSP
+# применяется к документу и могла бы сломать встроенный просмотрщик видео.
+# Этим путям достаются только nosniff и frame-запрет.
+#
+# HSTS здесь не ставится намеренно: его место — TLS-терминатор (nginx, Caddy,
+# Netlify), иначе на http-стенде заголовок залипнет в браузере.
+FILE_PATHS = ("/api/uploads/", "/api/img")
+
+BASE_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+}
+API_CSP = "default-src 'none'; frame-ancestors 'none'"
+
+
+async def security_headers(request: Request, call_next):
+    response: Response = await call_next(request)
+    for key, value in BASE_SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
+    if not request.url.path.startswith(FILE_PATHS):
+        response.headers.setdefault("Content-Security-Policy", API_CSP)
+    return response
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Pinly Python backend", lifespan=lifespan)
     app.add_middleware(
@@ -121,6 +152,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.middleware("http")(access_log)
+    app.middleware("http")(security_headers)
 
     load_dotenv(WEB_ROOT / ".env.local")
     init_db()

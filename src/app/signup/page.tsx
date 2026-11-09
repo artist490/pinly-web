@@ -95,6 +95,7 @@ export default function SignupPage() {
             <Link
               href="/privacy"
               target="_blank"
+              rel="noopener noreferrer"
               className="font-semibold text-accent-strong hover:underline"
             >
               Политикой конфиденциальности
@@ -103,6 +104,7 @@ export default function SignupPage() {
             <Link
               href="/terms"
               target="_blank"
+              rel="noopener noreferrer"
               className="font-semibold text-accent-strong hover:underline"
             >
               Пользовательское соглашение

@@ -172,3 +172,99 @@ def test_user_pin_list_does_not_query_per_pin(client, user, sql_counter):
 
     queries = len(seen) - before
     assert queries <= 5, f"список пинов делает {queries} запросов — вернулся N+1"
+
+
+# ── владельческие данные закрыты по умолчанию ────────────────────────────
+# Раньше «PINLY_OWNER_EMAIL не задан» означало «можно всем вошедшим»: одна
+# забытая переменная на боевом сервере отдавала бан пользователей любому
+# зарегистрированному. Теперь отказ конфигурации закрывает доступ.
+
+
+def test_admin_panel_closed_without_owner_or_local_flag(client, register, monkeypatch):
+    monkeypatch.delenv("PINLY_OWNER_EMAIL", raising=False)
+    monkeypatch.delenv("PINLY_ENV", raising=False)
+    monkeypatch.delenv("PINLY_ALLOW_LOCAL_ADMIN", raising=False)
+    someone = register()
+    assert client.get("/api/admin/reports", cookies=someone.cookies).status_code == 404
+    assert client.get("/api/ev/summary", cookies=someone.cookies).status_code == 404
+    # жалобы — не админ-зона: их пишут обычные пользователи
+    assert client.post(
+        "/api/reports",
+        json={"target_type": "pin", "target_id": "ov-1", "reason": "spam"},
+        cookies=someone.cookies,
+    ).status_code == 200
+
+
+def test_local_admin_flag_is_ignored_in_production(client, register, monkeypatch):
+    """Локальный обход не должен пережить переезд стенда в прод."""
+    monkeypatch.setenv("PINLY_ALLOW_LOCAL_ADMIN", "1")
+    monkeypatch.setenv("PINLY_ENV", "production")
+    monkeypatch.delenv("PINLY_OWNER_EMAIL", raising=False)
+    someone = register()
+    assert client.get("/api/admin/reports", cookies=someone.cookies).status_code == 404
+
+
+# ── выход отзывает сессию, а не только стирает куку ──────────────────────
+
+
+def test_logout_revokes_the_token_itself(client, register):
+    """Скопированная заранее кука обязана умереть вместе с выходом, а не
+    жить оставшиеся 30 дней."""
+    account = register()
+    stolen = {"pinly_session": account.cookies["pinly_session"]}
+    assert client.get("/api/auth/me", cookies=stolen).status_code == 200
+
+    assert client.post("/api/auth/logout", cookies=stolen).status_code == 200
+
+    # тот же самый токен больше ничего не открывает
+    assert client.get("/api/auth/me", cookies=stolen).status_code == 401
+    assert client.get("/api/chats", cookies=stolen).status_code == 401
+
+
+def test_login_after_logout_issues_a_working_session(client, register):
+    """Отзыв не должен ломать повторный вход тем же человеком."""
+    account = register(email="relogin@example.test")
+    old = {"pinly_session": account.cookies["pinly_session"]}
+    client.post("/api/auth/logout", cookies=old)
+
+    fresh = client.post(
+        "/api/auth/login",
+        json={"email": "relogin@example.test", "password": "secret12345"},
+    )
+    assert fresh.status_code == 200
+    cookies = {"pinly_session": fresh.cookies["pinly_session"]}
+    assert client.get("/api/auth/me", cookies=cookies).status_code == 200
+
+
+def test_session_token_carries_revision(client, register):
+    """sv в токене — то, с чем сверяется база; без него отзыв не работает."""
+    from backend.session import SESSION_COOKIE, jwt_decode
+
+    account = register()
+    payload = jwt_decode(account.cookies[SESSION_COOKIE])
+    assert payload["sv"] == 0
+
+
+# ── заголовки безопасности на ответах API ────────────────────────────────
+# Страницы получают их из next.config.ts, а /api/* уходит на бэкенд
+# rewrite'ом, где заголовки Next не применяются. Без этой прослойки JSON
+# остался бы без nosniff, и браузер мог бы исполнить подменённый ответ.
+
+
+def test_api_responses_carry_security_headers(client):
+    for path in ("/healthz", "/api/saves-count", "/api/user-pins"):
+        response = client.get(path)
+        assert response.headers["x-content-type-options"] == "nosniff", path
+        assert response.headers["x-frame-options"] == "DENY", path
+        assert response.headers["referrer-policy"] == "strict-origin-when-cross-origin", path
+        assert "frame-ancestors 'none'" in response.headers["content-security-policy"], path
+
+
+def test_uploaded_files_are_served_without_document_csp(client, user):
+    """Файл открывают прямой навигацией: CSP там применяется к документу и
+    мешала бы встроенному просмотрщику видео. nosniff и frame-запрет — есть."""
+    source = upload(user).json()["pin"]["sourceUrl"]
+    response = client.get(source)
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "content-security-policy" not in response.headers

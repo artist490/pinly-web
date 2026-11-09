@@ -1,0 +1,17 @@
+{
+  "title": "Уязвимые зависимости (OSV)",
+  "generatedAt": "2026-11-09T15:48:49.320Z",
+  "counts": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "info": 0
+  },
+  "extra": {
+    "root": "C:\\Users\\student\\Desktop\\проект\\pinly-web",
+    "dependencies": 462,
+    "vulnerable": 0
+  },
+  "findings": []
+}

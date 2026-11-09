@@ -1,9 +1,20 @@
-// Поиск по фото: картинка запроса → эмбеддинг voyage-multimodal-3.5 →
-// ближайшие пины в том же пространстве. Работает и против индекса,
-// построенного по тексту пинов, — модель общая для текста и изображений.
+// Поиск по фото: картинка запроса → описание словами (vision-модель) →
+// эмбеддинг cohere/embed-5-fast → ближайшие пины в том же пространстве.
+//
+// Почему через описание, а не эмбеддингом картинки напрямую: шлюз RouterAI
+// принимает в /v1/embeddings только строки и data-URL токенизирует как текст.
+// Проверено на cohere/embed-5-fast, voyage-multimodal-3.5 и titan-embed-image-v1:
+// косинус «картинка ↔ та же строка текстом» равен 1.0, то есть пиксели в модель
+// не попадают ни в одном формате. Поэтому картинка сначала переводится в слова
+// (см. providers/vision.ts), и уже описание ищется в текстовом индексе.
 
 import type { Pin } from "@/lib/pin";
-import { embedImage, embeddingsEnabled, imageBytesToDataUrl } from "@/lib/server/providers/embeddings";
+import {
+  embedTexts,
+  embeddingsEnabled,
+  imageBytesToDataUrl,
+} from "@/lib/server/providers/embeddings";
+import { captionImage, visionEnabled } from "@/lib/server/providers/vision";
 import { loadStore, searchVectors } from "@/lib/server/vector-store";
 import { sniffImageType } from "@/lib/server/img-proxy";
 
@@ -12,7 +23,7 @@ import { sniffImageType } from "@/lib/server/img-proxy";
 export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
 export type PhotoSearchOutcome =
-  | { status: "ok"; pins: Pin[]; indexed: number }
+  | { status: "ok"; pins: Pin[]; indexed: number; caption: string }
   | { status: "no-key" }
   | { status: "empty-index" }
   | { status: "bad-image" }
@@ -34,14 +45,19 @@ export async function searchByPhoto(bytes: Uint8Array, limit = 24): Promise<Phot
   const mime = detectMime(bytes);
   if (!mime) return { status: "bad-image" };
 
-  if (!embeddingsEnabled()) return { status: "no-key" };
+  if (!embeddingsEnabled() || !visionEnabled()) return { status: "no-key" };
 
   const store = await loadStore();
   if (store.items.length === 0) return { status: "empty-index" };
 
+  // Два платных вызова подряд: описание картинки, затем вектор описания.
+  // Поэтому всё, что можно проверить без сети, проверено выше.
+  let caption: string;
   let vector: number[] | null;
   try {
-    vector = await embedImage(imageBytesToDataUrl(bytes, mime));
+    caption = await captionImage(imageBytesToDataUrl(bytes, mime));
+    const vectors = await embedTexts([caption]);
+    vector = vectors?.[0] ?? null;
   } catch (err) {
     return { status: "upstream-failed", message: String(err).slice(0, 200) };
   }
@@ -54,7 +70,9 @@ export async function searchByPhoto(bytes: Uint8Array, limit = 24): Promise<Phot
   return {
     status: "ok",
     pins: hits.filter((h) => h.score >= MIN_SCORE).map((h) => h.pin),
-    // Пинов, а не векторов: один пин лежит в индексе и текстом, и картинкой.
+    // Пинов, а не векторов: один пин лежит в индексе и текстом, и описанием
+    // его картинки.
     indexed: new Set(store.items.map((it) => it.pin.id)).size,
+    caption,
   };
 }

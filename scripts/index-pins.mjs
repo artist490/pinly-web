@@ -2,7 +2,7 @@
 //
 // Собирает пины лентами через запущенный сайт (GET /api/feed — тот же план
 // страниц, что у npm run warm, поэтому ответы берутся из прогретого кэша),
-// считает эмбеддинги voyageai/voyage-multimodal-3.5 через routerai.ru и пишет
+// считает эмбеддинги cohere/embed-5-fast через routerai.ru и пишет
 // web/.cache/vectors.json.
 //
 //   npm run index              — текстовые векторы (умный поиск по слову)

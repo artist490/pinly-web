@@ -190,6 +190,20 @@ def remove_user(conn: sqlite3.Connection, user_id: str) -> None:
     conn.execute("delete from users where id = ?", (user_id,))
 
 
+def revoke_sessions(user_id: str) -> None:
+    """Поднять поколение сессий: выданные токены перестают совпадать с базой
+    (deps.session_revoked) и больше ничего не открывают.
+
+    Вызывается на выходе и на бане. Смена пароля обязана звать эту же функцию,
+    когда такой эндпоинт появится, — иначе украденная кука переживёт смену
+    пароля.
+    """
+    with connection() as conn:
+        conn.execute(
+            "update users set session_version = session_version + 1 where id = ?", (user_id,)
+        )
+
+
 # --- карточка пользователя ---
 
 def user_json(row: sqlite3.Row) -> dict:

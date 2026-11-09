@@ -127,7 +127,14 @@ def resolve_report(me_id: str, report_id: str, action: str) -> dict:
                 raise HTTPException(404, "target user not found")
             if banned == me_id:
                 raise HTTPException(400, "cannot ban yourself")
-            conn.execute("update users set is_blocked = 1 where id = ?", (banned,))
+            # бан поднимает и поколение сессий: is_blocked закрывает доступ
+            # сразу, а session_version не даёт вернуться, даже если флаг
+            # is_blocked когда-нибудь снимут вручную
+            conn.execute(
+                "update users set is_blocked = 1, session_version = session_version + 1"
+                " where id = ?",
+                (banned,),
+            )
         conn.execute("update reports set status = 'resolved' where id = ?", (report_id,))
         return {"ok": True}
 
