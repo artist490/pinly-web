@@ -11,6 +11,9 @@ export type AdminReport = {
   targetId: string;
   reason: ReportReason;
   createdAt: number;
+  // жалоба от авто-модерации (reporter — система): бейдж в очереди
+  autoReview?: boolean;
+  detail?: string | null;
   target: {
     title: string | null;
     exists: boolean;

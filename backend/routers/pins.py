@@ -7,7 +7,7 @@ from anyio import to_thread
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
-from .. import boards, erasure, pins, ratelimit, uploads
+from .. import autoreview, boards, erasure, pins, ratelimit, uploads
 from ..deps import current_user
 from ..schemas import PinFromUrlBody, PinUpdateBody
 
@@ -91,6 +91,10 @@ async def pins_create(
             uploads.discard(name)
         raise
     await pins.vectorize(pin)
+    # авто-модерация: та же не-критичная позиция, что у векторизации —
+    # публикация не падает из-за внешнего сервиса. Пин с отрицательным
+    # вердиктом скрывается и уходит в очередь жалоб с пометкой авто.
+    await autoreview.review_pin(pin)
     return {"pin": pin}
 
 
@@ -102,6 +106,7 @@ async def pins_create_from_url(
     ratelimit.rate_limit(request, "pin", limit=30, window_s=3600.0)
     pin = pins.create_from_url(user["id"], body)
     await pins.vectorize(pin)
+    await autoreview.review_pin(pin)
     return {"pin": pin}
 
 
@@ -145,6 +150,9 @@ async def pins_update(
 ) -> dict:
     pin = pins.update(user["id"], pin_id, body)
     await pins.vectorize(pin)  # текст мог измениться
+    # …и мог стать нарушением: правка текста проходит ту же проверку,
+    # что и публикация (обход через «создать чисто, потом дописать»)
+    await autoreview.review_pin(pin)
     return {"pin": pin}
 
 

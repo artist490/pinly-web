@@ -68,11 +68,21 @@ function ReportRow({
           ) : (
             <span className="text-muted">{report.targetId} (цель уже удалена)</span>
           )}
+          {report.autoReview && (
+            <span className="ml-2 rounded-full bg-surface-hover px-2 py-0.5 text-xs font-semibold text-muted">
+              авто
+            </span>
+          )}
         </p>
         <p className="mt-0.5 text-xs text-muted">
           Причина: {REASON_LABELS[report.reason] ?? report.reason} · {timeAgo(report.createdAt)}
           {report.target.hidden && " · цель уже скрыта или заблокирована"}
+          {report.autoReview &&
+            " · пин скрыт автоматически, «Отклонить» вернёт его в ленту"}
         </p>
+        {report.autoReview && report.detail && (
+          <p className="mt-0.5 text-xs text-muted">{report.detail}</p>
+        )}
       </div>
       <div className="flex shrink-0 gap-2">
         {primary && report.target.exists && (

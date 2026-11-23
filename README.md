@@ -204,7 +204,7 @@ docker run -d -p 3000:3000 -v pinly-data:/app/.data \
 | `PINLY_ALLOW_LOCAL_ADMIN` | локальный стенд и тесты: открыть сводку и модерацию без `PINLY_OWNER_EMAIL`. При `PINLY_ENV=production` игнорируется |
 | `ACCOUNTS_BACKEND_URL` | адрес Python-бэкенда, если он не на :8000 этой же машины |
 | `OPENVERSE_API_KEY` | поднимает лимиты источника с 200/день до 10000/день |
-| `EMBED_API_KEY` | включает смысловой поиск, умную ленту и поиск по фото |
+| `EMBED_API_KEY` | включает смысловой поиск, умную ленту, поиск по фото и авто-модерацию пинов (heygen-decision-1-turbo, порог — `AUTOREVIEW_THRESHOLD`) |
 | `IMGBB_API_KEY` | внешний хостинг картинок, если своих дисков жалко |
 | `PINLY_DATA_DIR` | каталог с базой и загрузками — на другой диск или том |
 | `PINLY_DISABLE_RATE_LIMIT` | отключает счётчики частоты. Только тестовый контур |

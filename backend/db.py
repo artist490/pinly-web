@@ -198,7 +198,9 @@ create table if not exists reports (
   target_id    text not null,
   reason       text not null,
   status       text not null default 'open',
-  created_at   real not null
+  created_at   real not null,
+  auto_review  integer not null default 0,
+  detail       text
 );
 create index if not exists reports_status_idx on reports (status, created_at desc);
 """
@@ -217,6 +219,10 @@ MIGRATIONS = (
     # номер поколения сессий: растёт при выходе и бане, старые токены перестают
     # совпадать с ним и больше не открывают ничего (deps.session_revoked)
     "alter table users add column session_version integer not null default 0",
+    # авто-модерация пинов: жалоба от системы (reporter_id=NULL) помечается
+    # флагом auto_review, пояснение вердикта уходит в detail
+    "alter table reports add column auto_review integer not null default 0",
+    "alter table reports add column detail text",
 )
 
 # Индексы по свежедобавленным колонкам: в SCHEMA их ставить нельзя — на старой

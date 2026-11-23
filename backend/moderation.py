@@ -93,6 +93,7 @@ def report_json(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
             "select title from boards where id = ?", (row["target_id"],)
         ).fetchone()
         target = {"title": board["title"] if board else None, "exists": board is not None}
+    keys = row.keys()
     return {
         "id": row["id"],
         "targetType": row["target_type"],
@@ -100,6 +101,10 @@ def report_json(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
         "reason": row["reason"],
         "createdAt": int(row["created_at"] * 1000),
         "target": target,
+        # авто-ревью: жалоба от системы, а не от пользователя. Бейдж рисуется
+        # в очереди, detail поясняет вердикт модели человеку
+        "autoReview": bool(row["auto_review"]) if "auto_review" in keys else False,
+        "detail": row["detail"] if "detail" in keys else None,
     }
 
 
@@ -135,6 +140,10 @@ def resolve_report(me_id: str, report_id: str, action: str) -> dict:
                 " where id = ?",
                 (banned,),
             )
+        elif action == "dismiss" and report["auto_review"] and report["target_type"] == "pin":
+            # человек отверг вердикт машины — пин возвращается из скрытия,
+            # иначе авто-модерация была бы необратимой без правки базы
+            conn.execute("update pins set is_hidden = 0 where id = ?", (report["target_id"],))
         conn.execute("update reports set status = 'resolved' where id = ?", (report_id,))
         return {"ok": True}
 
